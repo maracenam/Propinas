@@ -94,7 +94,8 @@ def calcular_propinas(filas_csv, propinas_totales):
     for nombre, (horas, minutos) in horas_por_nombre.items():
         horas_decimal = horas + minutos / 60
         propina = propina_por_hora * horas_decimal
-        propinas_por_nombre[nombre] = round(propina)
+        propina_redondeada = round(propina / 10) * 10
+        propinas_por_nombre[nombre] = propina_redondeada
         print(f"{nombre} ha trabajado {horas}:{minutos:02d} horas y recibirá una propina de {round(propina)}")
 
 
@@ -106,11 +107,73 @@ def calcular_propinas(filas_csv, propinas_totales):
 
     return propinas_por_nombre
 
+
+def ingresar_dinero_efectivo():
+    print("Ingrese la cantidad de dinero en efectivo que tiene:")
+    billetes_20000 = int(input("Billetes de 20000: "))
+    billetes_10000 = int(input("Billetes de 10000: "))
+    billetes_5000 = int(input("Billetes de 5000: "))
+    billetes_2000 = int(input("Billetes de 2000: "))
+    billetes_1000 = int(input("Billetes de 1000: "))
+    monedas_500 = int(input("Monedas de 500: "))
+    monedas_100 = int(input("Monedas de 100: "))
+    monedas_50 = int(input("Monedas de 50: "))
+    monedas_10 = int(input("Monedas de 10: "))
+
+    total_efectivo = (
+        billetes_20000 * 20000 +
+        billetes_10000 * 10000 +
+        billetes_5000 * 5000 +
+        billetes_2000 * 2000 +
+        billetes_1000 * 1000 +
+        monedas_500 * 500 +
+        monedas_100 * 100 +
+        monedas_50 * 50 +
+        monedas_10 * 10
+    )
+
+    efectivo = {
+        20000: billetes_20000,
+        10000: billetes_10000,
+        5000: billetes_5000,
+        2000: billetes_2000,
+        1000: billetes_1000,
+        500: monedas_500,
+        100: monedas_100,
+        50: monedas_50,
+        10: monedas_10
+    }
+
+    print(f"Total en efectivo: {total_efectivo}")
+    return total_efectivo, efectivo    
+
+def distribuir_efectivo(propinas_por_nombre, efectivo):
+    denominaciones = sorted(efectivo.keys(), reverse=True)
+    distribucion = {}
+
+    for nombre, propina in propinas_por_nombre.items():
+        distribucion[nombre] = {}
+        for denominacion in denominaciones:
+            cantidad = min(propina // denominacion, efectivo[denominacion])
+            distribucion[nombre][denominacion] = cantidad
+            propina -= cantidad * denominacion
+            efectivo[denominacion] -= cantidad
+
+        if propina > 0:
+            print(f"No hay suficiente efectivo para cubrir la propina de {nombre}. Falta {propina}.")
+
+    return distribucion
+
 def procesar_archivo(nombre_archivo, tipo):
     filas_csv = leer_csv(nombre_archivo)
     propinas_totales = float(input(f"Ingrese el monto total de las propinas para {tipo}: "))
+    total_efectivo, efectivo = ingresar_dinero_efectivo()
+    propinas_por_nombre = calcular_propinas(filas_csv, propinas_totales)
+    distribucion_efectivo = distribuir_efectivo(propinas_por_nombre, efectivo)
+    print(f"Distribución de efectivo para {tipo}: {distribucion_efectivo}")
     #print(f"Propinas Totales para {tipo}: {propinas_totales}")
-    return calcular_propinas(filas_csv, propinas_totales)
+    print(f"Efectivo Total para {tipo}: {total_efectivo}")
+    return distribucion_efectivo
 
 propinas_semana = procesar_archivo("semana.csv", "semana")
 propinas_finde = procesar_archivo("finde.csv", "fin de semana")
