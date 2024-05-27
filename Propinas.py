@@ -2,18 +2,14 @@ import csv
 
 # Ruta al archivo CSV
 def leer_csv(ruta_archivo):
-        filas_csv = []
-        with open(ruta_archivo, newline='', encoding='utf-8') as csvfile:
-            lector_csv = csv.reader(csvfile)
-            for fila in lector_csv:
-                filas_csv.append(fila)
-        return filas_csv
-
-    # Obtener los valores de las celdas específicas
-    
+    filas_csv = []
+    with open(ruta_archivo, newline='', encoding='utf-8') as csvfile:
+        lector_csv = csv.reader(csvfile)
+        for fila in lector_csv:
+            filas_csv.append(fila)
+    return filas_csv
 
 def calcular_propinas(filas_csv, propinas_totales):
-
     a = 2
     b = 0
 
@@ -23,9 +19,6 @@ def calcular_propinas(filas_csv, propinas_totales):
     total_horas_trabajadas = 0  
     total_minutos_trabajados = 0
 
-    #propinas_totales = float(input("Ingrese el monto total de las propinas: "))
-    #print(f"Propinas Totales: {propinas_totales}")
-
     for i in range(b, len(filas_csv)):
         for j in range(a, len(filas_csv)):
             if filas_csv[j][2] == filas_csv[a][2]:
@@ -33,11 +26,8 @@ def calcular_propinas(filas_csv, propinas_totales):
                 partes = hora_str.split(":")
                 horas_totales += int(partes[0])
                 minutos_totales += int(partes[1])
-                
             else:
                 break
-
-
 
         horas_totales += minutos_totales // 60
         minutos_totales %= 60
@@ -45,20 +35,16 @@ def calcular_propinas(filas_csv, propinas_totales):
         if a < len(filas_csv):
             nombre = filas_csv[a][1]  # Nombre de la persona
             horas_por_nombre[nombre] = (horas_totales, minutos_totales) 
-
-        #print(f"{horas_totales}:{minutos_totales:02d}", "este es la suma de horas de" , filas_csv[a][1])
         
         total_horas_trabajadas += horas_totales
         total_minutos_trabajados += minutos_totales
-        
+
         horas_totales = 0
         minutos_totales = 0
         a = j 
 
         if a >= len(filas_csv):
             break
-
-
 
     horas_extras_por_nombre = {}
     for nombre in horas_por_nombre.keys():
@@ -85,7 +71,6 @@ def calcular_propinas(filas_csv, propinas_totales):
     total_horas_trabajadas += total_minutos_trabajados // 60
     total_minutos_trabajados %= 60
 
-
     total_horas_decimal = total_horas_trabajadas + total_minutos_trabajados / 60
     propina_por_hora = propinas_totales / total_horas_decimal
     print(f"Propina por hora: {propina_por_hora:.2f}")
@@ -96,17 +81,11 @@ def calcular_propinas(filas_csv, propinas_totales):
         propina = propina_por_hora * horas_decimal
         propina_redondeada = round(propina / 10) * 10
         propinas_por_nombre[nombre] = propina_redondeada
-        print(f"{nombre} ha trabajado {horas}:{minutos:02d} horas y recibirá una propina de {round(propina)}")
-
-
-    #for nombre, (horas, minutos) in horas_por_nombre.items():
-    #    print(f"{horas}:{minutos:02d} este es la suma de horas de {nombre}")
-
+        print(f"{nombre} ha trabajado {horas}:{minutos:02d} horas y recibirá una propina de {propina_redondeada}")
 
     print(f"Total de horas trabajadas: {total_horas_trabajadas}:{total_minutos_trabajados:02d}")
 
     return propinas_por_nombre, horas_por_nombre
-
 
 def ingresar_dinero_efectivo():
     print("Ingrese la cantidad de dinero en efectivo que tiene:")
@@ -150,21 +129,24 @@ def ingresar_dinero_efectivo():
 def distribuir_efectivo(propinas_por_nombre, efectivo):
     denominaciones = sorted(efectivo.keys(), reverse=True)
     distribucion = {}
+    faltante_por_nombre = {}
 
     for nombre, propina in propinas_por_nombre.items():
         distribucion[nombre] = {}
+        faltante_por_nombre[nombre] = propina
         for denominacion in denominaciones:
             cantidad = min(propina // denominacion, efectivo[denominacion])
             distribucion[nombre][denominacion] = cantidad
             propina -= cantidad * denominacion
             efectivo[denominacion] -= cantidad
+            faltante_por_nombre[nombre] = propina
 
         if propina > 0:
             print(f"No hay suficiente efectivo para cubrir la propina de {nombre}. Falta {propina}.")
 
-    return distribucion
+    return distribucion, faltante_por_nombre
 
-def exportar_a_csv(nombre_archivo, tipo, propinas_por_nombre, horas_por_nombre, distribucion_efectivo):
+def exportar_a_csv(nombre_archivo, tipo, propinas_por_nombre, horas_por_nombre, distribucion_efectivo, faltante_por_nombre, total_efectivo):
     with open(f'{nombre_archivo}_{tipo}.csv', mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         # Escribir la cabecera
@@ -172,18 +154,19 @@ def exportar_a_csv(nombre_archivo, tipo, propinas_por_nombre, horas_por_nombre, 
             "Nombre", "Horas trabajadas", "Propina", 
             "Billete de 20000", "Billete de 10000", "Billete de 5000", 
             "Billete de 2000", "Billete de 1000", "Moneda de 500", 
-            "Moneda de 100", "Moneda de 50", "Moneda de 10"
+            "Moneda de 100", "Moneda de 50", "Moneda de 10", "Faltante"
         ])
         # Escribir los datos de cada persona
         for nombre in propinas_por_nombre:
             horas, minutos = horas_por_nombre[nombre]
             propina = propinas_por_nombre[nombre]
             distribucion = distribucion_efectivo[nombre]
+            faltante = faltante_por_nombre[nombre]
             writer.writerow([
                 nombre, f'{horas}:{minutos:02d}', propina,
                 distribucion.get(20000, 0), distribucion.get(10000, 0), distribucion.get(5000, 0),
                 distribucion.get(2000, 0), distribucion.get(1000, 0), distribucion.get(500, 0),
-                distribucion.get(100, 0), distribucion.get(50, 0), distribucion.get(10, 0)
+                distribucion.get(100, 0), distribucion.get(50, 0), distribucion.get(10, 0), faltante
             ])
         # Sumar totales y añadir al final
         total_horas_trabajadas = sum(horas for horas, _ in horas_por_nombre.values())
@@ -191,25 +174,24 @@ def exportar_a_csv(nombre_archivo, tipo, propinas_por_nombre, horas_por_nombre, 
         total_horas_trabajadas += total_minutos_trabajados // 60
         total_minutos_trabajados %= 60
         total_propinas = sum(propinas_por_nombre.values())
+        
+        efectivo_restante = sum(total_efectivo[denom] * denom for denom in total_efectivo)
+
         writer.writerow([])
         writer.writerow(["Total de horas trabajadas", f'{total_horas_trabajadas}:{total_minutos_trabajados:02d}'])
         writer.writerow(["Total de propinas", total_propinas])
+        writer.writerow(["Efectivo restante", efectivo_restante])
 
 def procesar_archivo(nombre_archivo, tipo):
     filas_csv = leer_csv(nombre_archivo)
     propinas_totales = float(input(f"Ingrese el monto total de las propinas para {tipo}: "))
     total_efectivo, efectivo = ingresar_dinero_efectivo()
     propinas_por_nombre, horas_por_nombre = calcular_propinas(filas_csv, propinas_totales)
-    distribucion_efectivo = distribuir_efectivo(propinas_por_nombre, efectivo)
+    distribucion_efectivo, faltante_por_nombre = distribuir_efectivo(propinas_por_nombre, efectivo)
     print(f"Distribución de efectivo para {tipo}: {distribucion_efectivo}")
-    #print(f"Propinas Totales para {tipo}: {propinas_totales}")
     print(f"Efectivo Total para {tipo}: {total_efectivo}")
-    exportar_a_csv("propinas", tipo, propinas_por_nombre, horas_por_nombre, distribucion_efectivo)
+    exportar_a_csv("propinas", tipo, propinas_por_nombre, horas_por_nombre, distribucion_efectivo, faltante_por_nombre, efectivo)
     return distribucion_efectivo
 
 propinas_semana = procesar_archivo("semana.csv", "semana")
 propinas_finde = procesar_archivo("finde.csv", "fin de semana")
-
-
-#print("Valor de la tercera columna de la segunda fila:", valor_1)
-#print("Valor de la vigésimo quinta columna de la segunda fila:", valor_2)
