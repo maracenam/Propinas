@@ -105,7 +105,7 @@ def calcular_propinas(filas_csv, propinas_totales):
 
     print(f"Total de horas trabajadas: {total_horas_trabajadas}:{total_minutos_trabajados:02d}")
 
-    return propinas_por_nombre
+    return propinas_por_nombre, horas_por_nombre
 
 
 def ingresar_dinero_efectivo():
@@ -164,15 +164,47 @@ def distribuir_efectivo(propinas_por_nombre, efectivo):
 
     return distribucion
 
+def exportar_a_csv(nombre_archivo, tipo, propinas_por_nombre, horas_por_nombre, distribucion_efectivo):
+    with open(f'{nombre_archivo}_{tipo}.csv', mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        # Escribir la cabecera
+        writer.writerow([
+            "Nombre", "Horas trabajadas", "Propina", 
+            "Billete de 20000", "Billete de 10000", "Billete de 5000", 
+            "Billete de 2000", "Billete de 1000", "Moneda de 500", 
+            "Moneda de 100", "Moneda de 50", "Moneda de 10"
+        ])
+        # Escribir los datos de cada persona
+        for nombre in propinas_por_nombre:
+            horas, minutos = horas_por_nombre[nombre]
+            propina = propinas_por_nombre[nombre]
+            distribucion = distribucion_efectivo[nombre]
+            writer.writerow([
+                nombre, f'{horas}:{minutos:02d}', propina,
+                distribucion.get(20000, 0), distribucion.get(10000, 0), distribucion.get(5000, 0),
+                distribucion.get(2000, 0), distribucion.get(1000, 0), distribucion.get(500, 0),
+                distribucion.get(100, 0), distribucion.get(50, 0), distribucion.get(10, 0)
+            ])
+        # Sumar totales y añadir al final
+        total_horas_trabajadas = sum(horas for horas, _ in horas_por_nombre.values())
+        total_minutos_trabajados = sum(minutos for _, minutos in horas_por_nombre.values())
+        total_horas_trabajadas += total_minutos_trabajados // 60
+        total_minutos_trabajados %= 60
+        total_propinas = sum(propinas_por_nombre.values())
+        writer.writerow([])
+        writer.writerow(["Total de horas trabajadas", f'{total_horas_trabajadas}:{total_minutos_trabajados:02d}'])
+        writer.writerow(["Total de propinas", total_propinas])
+
 def procesar_archivo(nombre_archivo, tipo):
     filas_csv = leer_csv(nombre_archivo)
     propinas_totales = float(input(f"Ingrese el monto total de las propinas para {tipo}: "))
     total_efectivo, efectivo = ingresar_dinero_efectivo()
-    propinas_por_nombre = calcular_propinas(filas_csv, propinas_totales)
+    propinas_por_nombre, horas_por_nombre = calcular_propinas(filas_csv, propinas_totales)
     distribucion_efectivo = distribuir_efectivo(propinas_por_nombre, efectivo)
     print(f"Distribución de efectivo para {tipo}: {distribucion_efectivo}")
     #print(f"Propinas Totales para {tipo}: {propinas_totales}")
     print(f"Efectivo Total para {tipo}: {total_efectivo}")
+    exportar_a_csv("propinas", tipo, propinas_por_nombre, horas_por_nombre, distribucion_efectivo)
     return distribucion_efectivo
 
 propinas_semana = procesar_archivo("semana.csv", "semana")
