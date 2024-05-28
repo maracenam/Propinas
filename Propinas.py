@@ -1,6 +1,5 @@
 import csv
 
-# Ruta al archivo CSV
 def leer_csv(ruta_archivo):
     filas_csv = []
     with open(ruta_archivo, newline='', encoding='utf-8') as csvfile:
@@ -126,23 +125,76 @@ def ingresar_dinero_efectivo():
     print(f"Total en efectivo: {total_efectivo}")
     return total_efectivo, efectivo    
 
+def sencillar_dinero(faltante, restante, denominaciones):
+    cambio = {}
+    fuente_cambio = {}
+
+    # Intentar encontrar la menor denominación que sea mayor que el faltante
+    for denom in sorted(denominaciones):
+        if restante[denom] > 0 and denom > faltante:
+            cambio_posible = denom
+            break
+    else:
+        return None, restante, None
+
+    # Intentar sencillar el billete/moneda grande
+    restante[cambio_posible] -= 1
+    restante_resto = cambio_posible - faltante
+
+    # Generar el cambio con denominaciones menores
+    for denom in denominaciones:
+        if denom <= restante_resto:
+            cantidad = restante_resto // denom
+            if cantidad > 0:
+                if denom in cambio:
+                    cambio[denom] += cantidad
+                else:
+                    cambio[denom] = cantidad
+                restante_resto -= cantidad * denom
+
+    # Asegurarse de que el cambio restante no se pierde
+    if restante_resto > 0:
+        if restante_resto in cambio:
+            cambio[restante_resto] += 1
+        else:
+            cambio[restante_resto] = 1
+
+    # Actualizar el fondo restante con el cambio dado
+    for denom, cantidad in cambio.items():
+        restante[denom] += cantidad
+        
+    # Guardar la fuente del cambio
+    fuente_cambio[cambio_posible] = cambio_posible - faltante
+    
+    return cambio, restante, fuente_cambio
+
 def distribuir_efectivo(propinas_por_nombre, efectivo):
     denominaciones = sorted(efectivo.keys(), reverse=True)
     distribucion = {}
     faltante_por_nombre = {}
+    restante = efectivo.copy()
 
     for nombre, propina in propinas_por_nombre.items():
         distribucion[nombre] = {}
         faltante_por_nombre[nombre] = propina
         for denominacion in denominaciones:
-            cantidad = min(propina // denominacion, efectivo[denominacion])
+            cantidad = min(propina // denominacion, restante[denominacion])
             distribucion[nombre][denominacion] = cantidad
             propina -= cantidad * denominacion
-            efectivo[denominacion] -= cantidad
+            restante[denominacion] -= cantidad
             faltante_por_nombre[nombre] = propina
 
         if propina > 0:
             print(f"No hay suficiente efectivo para cubrir la propina de {nombre}. Falta {propina}.")
+
+        for nombre, faltante in faltante_por_nombre.items():
+            if faltante > 0:
+                cambio, restante, fuente_cambio = sencillar_dinero(faltante, restante, denominaciones)
+                if cambio:
+                    print(f"Para cubrir el faltante de {nombre}, sencille el dinero: {cambio} Fuente: {fuente_cambio}")
+                    for denom, cantidad in cambio.items():
+                        distribucion[nombre][denom] = distribucion[nombre].get(denom, 0) + cantidad
+                    faltante_por_nombre[nombre] = 0
 
     return distribucion, faltante_por_nombre
 
@@ -154,7 +206,7 @@ def exportar_a_csv(nombre_archivo, tipo, propinas_por_nombre, horas_por_nombre, 
             "Nombre", "Horas trabajadas", "Propina", 
             "Billete de 20000", "Billete de 10000", "Billete de 5000", 
             "Billete de 2000", "Billete de 1000", "Moneda de 500", 
-            "Moneda de 100", "Moneda de 50", "Moneda de 10", "Faltante"
+            "Moneda de 100", "Moneda de 50", "Moneda de 10", "Faltante", "Sencillar"
         ])
         # Escribir los datos de cada persona
         for nombre in propinas_por_nombre:
@@ -162,11 +214,20 @@ def exportar_a_csv(nombre_archivo, tipo, propinas_por_nombre, horas_por_nombre, 
             propina = propinas_por_nombre[nombre]
             distribucion = distribucion_efectivo[nombre]
             faltante = faltante_por_nombre[nombre]
+            sencillar_info = ""
+
+            if faltante > 0:
+                cambio, _, fuente_cambio = sencillar_dinero(faltante, total_efectivo, sorted(total_efectivo.keys(), reverse=True))
+                if cambio:
+                    sencillar_info = f"Sencillar: {cambio} Fuente: {fuente_cambio}"
+                else:
+                    sencillar_info = "No se puede sencillar"
+
             writer.writerow([
                 nombre, f'{horas}:{minutos:02d}', propina,
                 distribucion.get(20000, 0), distribucion.get(10000, 0), distribucion.get(5000, 0),
                 distribucion.get(2000, 0), distribucion.get(1000, 0), distribucion.get(500, 0),
-                distribucion.get(100, 0), distribucion.get(50, 0), distribucion.get(10, 0), faltante
+                distribucion.get(100, 0), distribucion.get(50, 0), distribucion.get(10, 0), faltante, sencillar_info
             ])
         # Sumar totales y añadir al final
         total_horas_trabajadas = sum(horas for horas, _ in horas_por_nombre.values())
@@ -181,7 +242,7 @@ def exportar_a_csv(nombre_archivo, tipo, propinas_por_nombre, horas_por_nombre, 
         writer.writerow(["Total de horas trabajadas", f'{total_horas_trabajadas}:{total_minutos_trabajados:02d}'])
         writer.writerow(["Total de propinas", total_propinas])
         writer.writerow(["Efectivo restante", efectivo_restante])
-
+        
 def procesar_archivo(nombre_archivo, tipo):
     filas_csv = leer_csv(nombre_archivo)
     propinas_totales = float(input(f"Ingrese el monto total de las propinas para {tipo}: "))
